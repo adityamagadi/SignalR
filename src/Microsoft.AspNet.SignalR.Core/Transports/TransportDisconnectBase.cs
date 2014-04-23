@@ -70,9 +70,6 @@ namespace Microsoft.AspNet.SignalR.Transports
             _heartbeat = heartbeat;
             _counters = performanceCounterManager;
 
-            // Queue to protect against overlapping writes to the underlying response stream
-            WriteQueue = new TaskQueue();
-
             _trace = traceManager["SignalR.Transports." + GetType().Name];
         }
 
@@ -110,7 +107,7 @@ namespace Microsoft.AspNet.SignalR.Transports
             set;
         }
 
-        public Func<Task> Disconnected { get; set; }
+        public Func<bool, Task> Disconnected { get; set; }
 
         public virtual CancellationToken CancellationToken
         {
@@ -251,16 +248,15 @@ namespace Microsoft.AspNet.SignalR.Transports
 
         public Task Disconnect()
         {
-            // Ensure delegate continues to use the C# Compiler static delegate caching optimization.
-            return Abort(clean: false).Then(transport => transport.Connection.Close(transport.ConnectionId), this);
+            return Abort(clean: false);
         }
 
-        public Task Abort()
+        protected Task Abort()
         {
             return Abort(clean: true);
         }
 
-        public Task Abort(bool clean)
+        private Task Abort(bool clean)
         {
             if (clean)
             {
@@ -281,11 +277,11 @@ namespace Microsoft.AspNet.SignalR.Transports
             // End the connection
             End();
 
-            var disconnected = Disconnected ?? _emptyTaskFunc;
+            var disconnectedTask = Disconnected(clean) ?? TaskAsyncHelper.Empty;
 
             // Ensure delegate continues to use the C# Compiler static delegate caching optimization.
-            return disconnected().Catch((ex, state) => OnDisconnectError(ex, state), Trace)
-                                 .Then(counters => counters.ConnectionsDisconnected.Increment(), _counters);
+            return disconnectedTask.Catch((ex, state) => OnDisconnectError(ex, state), Trace)
+                                   .Then(counters => counters.ConnectionsDisconnected.Increment(), _counters);
         }
 
         public void ApplyState(TransportConnectionStates states)

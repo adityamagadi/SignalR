@@ -56,9 +56,9 @@ namespace Microsoft.AspNet.SignalR.Transports
         public bool Initializing { get; set; }
 
         /// <summary>
-        /// True if the connection receives a disconnect command.
+        /// True if the connection has finished initializing
         /// </summary>
-        public bool Disconnect { get; set; }
+        public bool Started { get; set; }
 
         /// <summary>
         /// True if the connection was forcibly closed. 
@@ -112,9 +112,9 @@ namespace Microsoft.AspNet.SignalR.Transports
                 jsonWriter.WriteValue(1);
             }
 
-            if (Disconnect)
+            if (Started)
             {
-                jsonWriter.WritePropertyName("D");
+                jsonWriter.WritePropertyName("O");
                 jsonWriter.WriteValue(1);
             }
 
